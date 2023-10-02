@@ -4,6 +4,14 @@ from taipy.gui import invoke_long_callback
 import numpy as np
 import pandas as pd
 import math
+import pickle
+
+import socket
+from threading import Thread
+from taipy.gui import Gui, State, invoke_callback, get_state_id
+
+HOST = "127.0.0.1"
+PORT = 65432
 
 init_lat = 49.247
 init_long = 1.377
@@ -94,31 +102,47 @@ for lat in lats_unique:
         pollutions.append(pollution(lat, long))
 
 
-def iddle():
-    global countdown
+# Socket handler
+def client_handler(gui: Gui, state_id_list: list):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((HOST, PORT))
+    s.listen()
+    conn, addr = s.accept()
     while True:
-        time.sleep(2)
-        countdown += 5
+        if data := conn.recv(4096 * 20):
+            data = pickle.loads(data)
+            print(f"Data received: {data[:1]}...{data[-1:]}")
+            invoke_callback(
+                gui,
+                state_id_list[0],
+                update_case_count,
+                [data],
+            )
+        else:
+            print("Connection closed")
+            break
 
 
-def on_init(state):
-    invoke_long_callback(state, iddle, [], update, [], 2000)
+# Gui declaration
+state_id_list = []
+
+Gui.add_shared_variable("data_province_displayed")
+
+state_id = None
 
 
-def update(state):
-    for i in range(len(pollutions)):
-        pollutions[i] = pollution(lats[i], longs[i])
-    state.data_province_displayed = pd.DataFrame(
-        {
-            "Latitude": lats,
-            "Longitude": longs,
-            "Pollution": pollutions,
-        }
-    )
-    state.pollutions = pollutions
+def on_init(state: State):
+    global state_id
+    state_id = get_state_id(state)
+
+
+def update_case_count(state: State, val):
+    state.pollutions = val
+    state.data_province_displayed["Pollution"] = state.pollutions
+    state.data_province_displayed = state.data_province_displayed
     # Add time as seconds since initial_time in int
     state.times.append(int(time.time() - initial_time))
-    state.max_pollutions.append(max(pollutions))
+    state.max_pollutions.append(max(state.pollutions))
     state.line_data = pd.DataFrame(
         {
             "Time (s)": state.times,
@@ -167,5 +191,13 @@ page = """
 |>
 |>
 """
-
-Gui(page).run(use_reloader=True)
+gui = Gui(page)
+t = Thread(
+    target=client_handler,
+    args=(
+        gui,
+        ["1"],
+    ),
+)
+t.start()
+gui.run(use_reloader=True)
