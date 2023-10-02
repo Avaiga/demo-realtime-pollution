@@ -1,0 +1,14 @@
+.card {
+    padding: 1rem;
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+.map {
+    /* Map object, add a bunch of styles here */
+    width: 100%;
+    border-radius: 1rem;
+    overflow: hidden;
+    padding: 0;
+    margin-bottom: 1rem;
+}
