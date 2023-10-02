@@ -3,6 +3,7 @@ from taipy import Gui
 from taipy.gui import invoke_long_callback
 import numpy as np
 import pandas as pd
+import math
 
 init_lat = 49.247
 init_long = 1.377
@@ -60,7 +61,7 @@ def pollution(lat, long):
     Pollution should have an added random component
     """
     global countdown
-    return min(countdown, 80) * np.exp(
+    return 80 * (0.5 + 0.5 * math.sin(countdown / 20)) * math.exp(
         -(0.8 * (lat - factory_lat) ** 2 + 0.2 * (long - factory_long) ** 2) / 0.00005
     ) + np.random.randint(0, 50)
 
@@ -77,7 +78,7 @@ layout_map = {
 
 layout_line = {
     "title": "Max Measured AQI over Time",
-    "yaxis": {"range": [50, 140]},
+    "yaxis": {"range": [0, 150]},
 }
 
 lats = []
@@ -162,7 +163,7 @@ page = """
 |>
 
 <|part|class_name=card|
-<|{line_data}|chart|type=lines|x=Time (s)|y=Max AQI|height=300px|layout={layout_line}|>
+<|{line_data[-30:]}|chart|type=lines|x=Time (s)|y=Max AQI|height=300px|layout={layout_line}|>
 |>
 |>
 """
