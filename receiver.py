@@ -1,7 +1,8 @@
+import socket
+import pickle
 import math
-import time
-from taipy import Gui
-from taipy.gui import invoke_long_callback
+from threading import Thread
+from taipy.gui import Gui, State, invoke_callback, get_state_id
 import numpy as np
 import pandas as pd
 
@@ -52,6 +53,35 @@ drone_data = pd.DataFrame(
     }
 )
 
+HOST = "127.0.0.1"
+PORT = 65432
+
+layout_map = {
+    "mapbox": {
+        "style": "open-street-map",
+        "center": {"lat": init_lat, "lon": init_long},
+        "zoom": 13,
+    },
+    "dragmode": "false",
+    "margin": {"l": 0, "r": 0, "b": 0, "t": 0},
+}
+
+layout_line = {
+    "title": "Max Measured AQI over Time",
+    "yaxis": {"range": [0, 150]},
+}
+
+options = {
+    "opacity": 0.8,
+    "colorscale": "Bluered",
+    "zmin": 0,
+    "zmax": 140,
+    "colorbar": {"title": "AQI"},
+    "hoverinfo": "none",
+}
+
+config = {"scrollZoom": False, "displayModeBar": False}
+
 
 def pollution(lat: float, long: float):
     """
@@ -73,21 +103,6 @@ def pollution(lat: float, long: float):
     ) + np.random.randint(0, 50)
 
 
-layout_map = {
-    "mapbox": {
-        "style": "open-street-map",
-        "center": {"lat": init_lat, "lon": init_long},
-        "zoom": 13,
-    },
-    "dragmode": "false",
-    "margin": {"l": 0, "r": 0, "b": 0, "t": 0},
-}
-
-layout_line = {
-    "title": "Max Measured AQI over Time",
-    "yaxis": {"range": [0, 150]},
-}
-
 lats = []
 longs = []
 pollutions = []
@@ -100,41 +115,64 @@ for lat in lats_unique:
         longs.append(long)
         pollutions.append(pollution(lat, long))
 
+data_province_displayed = pd.DataFrame(
+    {
+        "Latitude": lats,
+        "Longitude": longs,
+        "Pollution": pollutions,
+    }
+)
 
-def iddle():
-    """
-    Only call an update every 3 seconds
-    """
-    global countdown
+max_pollution = data_province_displayed["Pollution"].max()
+
+
+# Socket handler
+def client_handler(gui: Gui, state_id_list: list):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((HOST, PORT))
+    s.listen()
+    conn, _ = s.accept()
     while True:
-        time.sleep(3)
-        countdown += 5
+        if data := conn.recv(1024 * 1024):
+            pollutions = pickle.loads(data)
+            print(f"Data received: {pollutions[:5]}")
+            if hasattr(gui, "_server") and state_id_list:
+                invoke_callback(
+                    gui,
+                    state_id_list[0],
+                    update_pollutions,
+                    [pollutions],
+                )
+        else:
+            print("Connection closed")
+            break
 
 
-def on_init(state):
-    """
-    Start the update loop
-    """
-    invoke_long_callback(state, iddle, [], update, [], 2000)
+# Gui declaration
+state_id_list = []
+
+Gui.add_shared_variable("pollutions")
 
 
-def update(state):
-    """
-    Update the pollution levels
-    """
-    for i in range(len(pollutions)):
-        pollutions[i] = pollution(lats[i], longs[i])
+def on_init(state: State):
+    state_id = get_state_id(state)
+    if (state_id := get_state_id(state)) is not None and state_id != "":
+        state_id_list.append(state_id)
+    update_pollutions(state, pollutions)
+
+
+def update_pollutions(state: State, val):
+    state.pollutions = val
     state.data_province_displayed = pd.DataFrame(
         {
             "Latitude": lats,
             "Longitude": longs,
-            "Pollution": pollutions,
+            "Pollution": state.pollutions,
         }
     )
-    state.pollutions = pollutions
     # Add an hour to the time
     state.periods = state.periods + 1
-    state.max_pollutions = state.max_pollutions + [max(pollutions)]
+    state.max_pollutions = state.max_pollutions + [max(state.pollutions)]
     state.times = pd.date_range(
         "2020-11-04", periods=len(state.max_pollutions), freq="H"
     )
@@ -145,26 +183,6 @@ def update(state):
         }
     )
 
-
-data_province_displayed = pd.DataFrame(
-    {
-        "Latitude": lats,
-        "Longitude": longs,
-        "Pollution": pollutions,
-    }
-)
-
-options = {
-    "opacity": 0.8,
-    "colorscale": "Bluered",
-    "zmin": 0,
-    "zmax": 140,
-    "colorbar": {"title": "AQI"},
-    "hoverinfo": "none",
-}
-config = {"scrollZoom": False, "displayModeBar": False}
-
-max_pollution = data_province_displayed["Pollution"].max()
 
 page = """
 <|{data_province_displayed}|chart|type=densitymapbox|plot_config={config}|options={options}|lat=Latitude|lon=Longitude|layout={layout_map}|z=Pollution|mode=markers|class_name=map|height=40vh|>
@@ -186,5 +204,14 @@ page = """
 |>
 |>
 """
+gui = Gui(page=page)
 
-Gui(page).run(use_reloader=True)
+t = Thread(
+    target=client_handler,
+    args=(
+        gui,
+        state_id_list,
+    ),
+)
+t.start()
+gui.run(run_browser=False)
