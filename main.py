@@ -1,9 +1,9 @@
+import math
+import time
 from taipy import Gui
 from taipy.gui import invoke_long_callback
 import numpy as np
 import pandas as pd
-import math
-import time
 
 init_lat = 49.247
 init_long = 1.377
@@ -19,7 +19,7 @@ longs_unique = np.arange(init_long - diff_long, init_long + diff_long, 0.001)
 
 countdown = 20
 periods = 0
-line_data = pd.DataFrame({"Time (s)": [], "Max AQI": []})
+line_data = pd.DataFrame({"Time": [], "Max AQI": []})
 
 drone_data = pd.DataFrame(
     {
@@ -53,12 +53,19 @@ drone_data = pd.DataFrame(
 )
 
 
-def pollution(lat, long):
+def pollution(lat: float, long: float):
     """
     Return pollution level in percentage
     Pollution should be centered around the factory
     Pollution should decrease with distance to factory
     Pollution should have an added random component
+
+    Args:
+        - lat: latitude
+        - long: longitude
+
+    Returns:
+        - pollution level
     """
     global countdown
     return 80 * (0.5 + 0.5 * math.sin(countdown / 20)) * math.exp(
@@ -95,6 +102,9 @@ for lat in lats_unique:
 
 
 def iddle():
+    """
+    Only call an update every 3 seconds
+    """
     global countdown
     while True:
         time.sleep(3)
@@ -102,10 +112,16 @@ def iddle():
 
 
 def on_init(state):
+    """
+    Start the update loop
+    """
     invoke_long_callback(state, iddle, [], update, [], 2000)
 
 
 def update(state):
+    """
+    Update the pollution levels
+    """
     for i in range(len(pollutions)):
         pollutions[i] = pollution(lats[i], longs[i])
     state.data_province_displayed = pd.DataFrame(
@@ -151,7 +167,7 @@ config = {"scrollZoom": False, "displayModeBar": False}
 max_pollution = data_province_displayed["Pollution"].max()
 
 page = """
-<|{data_province_displayed}|chart|type=densitymapbox|plot_config={config}|options={options}|lat=Latitude|lon=Longitude|layout={layout_map}|z=Pollution|mode=markers|class_name=map|>
+<|{data_province_displayed}|chart|type=densitymapbox|plot_config={config}|options={options}|lat=Latitude|lon=Longitude|layout={layout_map}|z=Pollution|mode=markers|class_name=map|height=40vh|>
 <|layout|columns=1 2 2|
 <|part|class_name=card|
 **Max Measured AQI:**<br/><br/><br/>
@@ -166,7 +182,7 @@ page = """
 |>
 
 <|part|class_name=card|
-<|{line_data[-30:]}|chart|type=lines|x=Time|y=Max AQI|layout={layout_line}|>
+<|{line_data[-30:]}|chart|type=lines|x=Time|y=Max AQI|layout={layout_line}|height=40vh|>
 |>
 |>
 """
