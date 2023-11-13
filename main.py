@@ -167,7 +167,7 @@ config = {"scrollZoom": False, "displayModeBar": False}
 max_pollution = data_province_displayed["Pollution"].max()
 
 page = """
-<|{data_province_displayed}|chart|type=densitymapbox|plot_config={config}|options={options}|lat=Latitude|lon=Longitude|layout={layout_map}|z=Pollution|mode=markers|class_name=map|>
+<|{data_province_displayed}|chart|type=densitymapbox|plot_config={config}|options={options}|lat=Latitude|lon=Longitude|layout={layout_map}|z=Pollution|mode=markers|class_name=map|height=40vh|>
 <|layout|columns=1 2 2|
 <|part|class_name=card|
 **Max Measured AQI:**<br/><br/><br/>
@@ -182,7 +182,7 @@ page = """
 |>
 
 <|part|class_name=card|
-<|{line_data[-30:]}|chart|type=lines|x=Time|y=Max AQI|layout={layout_line}|>
+<|{line_data[-30:]}|chart|type=lines|x=Time|y=Max AQI|layout={layout_line}|height=40vh|>
 |>
 |>
 """
