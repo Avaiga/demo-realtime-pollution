@@ -1,1 +1,1 @@
-taipy
+taipy==3.0.0

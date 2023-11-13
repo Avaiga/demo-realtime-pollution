@@ -1,9 +1,9 @@
-import time
 from taipy import Gui
 from taipy.gui import invoke_long_callback
 import numpy as np
 import pandas as pd
 import math
+import time
 
 init_lat = 49.247
 init_long = 1.377
@@ -18,7 +18,7 @@ lats_unique = np.arange(init_lat - diff_lat, init_lat + diff_lat, 0.001)
 longs_unique = np.arange(init_long - diff_long, init_long + diff_long, 0.001)
 
 countdown = 20
-initial_time = time.time()
+periods = 0
 line_data = pd.DataFrame({"Time (s)": [], "Max AQI": []})
 
 drone_data = pd.DataFrame(
@@ -97,7 +97,7 @@ for lat in lats_unique:
 def iddle():
     global countdown
     while True:
-        time.sleep(2)
+        time.sleep(3)
         countdown += 5
 
 
@@ -116,12 +116,13 @@ def update(state):
         }
     )
     state.pollutions = pollutions
-    # Add time as seconds since initial_time in int
-    state.times.append(int(time.time() - initial_time))
+    # Add an hour to the time
+    state.periods = state.periods + 1
+    state.times = pd.date_range("2020-11-04", periods=state.periods, freq="H")
     state.max_pollutions.append(max(pollutions))
     state.line_data = pd.DataFrame(
         {
-            "Time (s)": state.times,
+            "Time": state.times,
             "Max AQI": state.max_pollutions,
         }
     )
@@ -148,7 +149,7 @@ config = {"scrollZoom": False, "displayModeBar": False}
 max_pollution = data_province_displayed["Pollution"].max()
 
 page = """
-<|{data_province_displayed}|chart|type=densitymapbox|plot_config={config}|options={options}|lat=Latitude|lon=Longitude|layout={layout_map}|z=Pollution|mode=markers|height=300px|class_name=map|>
+<|{data_province_displayed}|chart|type=densitymapbox|plot_config={config}|options={options}|lat=Latitude|lon=Longitude|layout={layout_map}|z=Pollution|mode=markers|class_name=map|>
 <|layout|columns=1 2 2|
 <|part|class_name=card|
 **Max Measured AQI:**<br/><br/><br/>
@@ -159,11 +160,11 @@ page = """
 |>
 
 <|part|class_name=card|
-<|{drone_data}|table|page_size=6|>
+<|{drone_data}|table|show_all=True|>
 |>
 
 <|part|class_name=card|
-<|{line_data[-30:]}|chart|type=lines|x=Time (s)|y=Max AQI|height=300px|layout={layout_line}|>
+<|{line_data[-30:]}|chart|type=lines|x=Time|y=Max AQI|layout={layout_line}|>
 |>
 |>
 """
