@@ -118,8 +118,10 @@ def update(state):
     state.pollutions = pollutions
     # Add an hour to the time
     state.periods = state.periods + 1
-    state.times = pd.date_range("2020-11-04", periods=state.periods, freq="H")
-    state.max_pollutions.append(max(pollutions))
+    state.max_pollutions = state.max_pollutions + [max(pollutions)]
+    state.times = pd.date_range(
+        "2020-11-04", periods=len(state.max_pollutions), freq="H"
+    )
     state.line_data = pd.DataFrame(
         {
             "Time": state.times,
