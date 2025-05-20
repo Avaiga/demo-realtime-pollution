@@ -20,7 +20,13 @@ git clone https://github.com/Avaiga/demo-realtime-pollution.git
 pip install -r requirements.txt
 ```
 
-3. Run the receiver script
+3. Go to the `src` directory
+
+```
+cd src
+```
+
+4. Run the receiver script
 
 ```bash
 python receiver.py
@@ -28,7 +34,7 @@ python receiver.py
 
 This should open a dashboard in your browser.
 
-4. Run the sender script
+5. Run the sender script
 
 ```bash
 python sender.py

@@ -5,6 +5,7 @@ from taipy.gui import invoke_long_callback
 import numpy as np
 import pandas as pd
 
+
 init_lat = 49.247
 init_long = 1.377
 
@@ -186,5 +187,6 @@ page = """
 |>
 |>
 """
+
 
 Gui(page).run(use_reloader=True)
