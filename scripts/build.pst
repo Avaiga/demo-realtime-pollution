@@ -1,0 +1,81 @@
+##############################################################################
+# EcoMetrics Build Script (Windows PowerShell)
+# Author: Zoha (Build Job)
+# Description: Prepares application artifacts for containerization
+##############################################################################
+
+$ErrorActionPreference = "Stop"
+
+Write-Host "========================================" -ForegroundColor Blue
+Write-Host "  EcoMetrics Build Process" -ForegroundColor Blue
+Write-Host "========================================" -ForegroundColor Blue
+
+# Step 1: Clean previous builds
+Write-Host "`n[1/5] Cleaning previous builds..." -ForegroundColor Green
+if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
+if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
+Get-ChildItem -Directory -Filter "__pycache__" -Recurse | Remove-Item -Recurse -Force
+Get-ChildItem -Filter "*.pyc" -Recurse | Remove-Item -Force
+Write-Host "✓ Cleanup complete" -ForegroundColor Green
+
+# Step 2: Create build directory
+Write-Host "`n[2/5] Creating build directory..." -ForegroundColor Green
+New-Item -ItemType Directory -Force -Path "build" | Out-Null
+Write-Host "✓ Build directory created" -ForegroundColor Green
+
+# Step 3: Verify dependencies
+Write-Host "`n[3/5] Verifying dependencies..." -ForegroundColor Green
+if (Test-Path "requirements.txt") {
+    Write-Host "Found requirements.txt"
+    try {
+        pip install --dry-run -r requirements.txt 2>&1 | Out-Null
+        Write-Host "✓ All dependencies are valid" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "✗ Dependency verification failed" -ForegroundColor Red
+        exit 1
+    }
+}
+else {
+    Write-Host "✗ requirements.txt not found" -ForegroundColor Red
+    exit 1
+}
+
+# Step 4: Copy source files
+Write-Host "`n[4/5] Copying source files..." -ForegroundColor Green
+Copy-Item -Recurse -Force "src" "build/"
+Copy-Item -Force "requirements.txt" "build/"
+if (Test-Path "README.md") {
+    Copy-Item -Force "README.md" "build/"
+}
+Write-Host "✓ Source files copied" -ForegroundColor Green
+
+# Step 5: Validate Python syntax
+Write-Host "`n[5/5] Validating Python syntax..." -ForegroundColor Green
+$pythonFiles = Get-ChildItem -Path "build/src" -Filter "*.py"
+$validationFailed = $false
+
+foreach ($file in $pythonFiles) {
+    try {
+        python -m py_compile $file.FullName 2>&1 | Out-Null
+    }
+    catch {
+        Write-Host "✗ Syntax error in $($file.Name)" -ForegroundColor Red
+        $validationFailed = $true
+    }
+}
+
+if ($validationFailed) {
+    Write-Host "✗ Python syntax validation failed" -ForegroundColor Red
+    exit 1
+}
+else {
+    Write-Host "✓ Python syntax validation passed" -ForegroundColor Green
+}
+
+# Success!
+Write-Host "`n========================================" -ForegroundColor Blue
+Write-Host "✓ Build completed successfully!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Blue
+Write-Host "Build artifacts located in: $PWD\build\"
+Write-Host ""
